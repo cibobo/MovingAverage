@@ -2,6 +2,7 @@ import BinanceRestLib
 
 import json
 import time
+import math
 from datetime import datetime
 from collections import deque
 
@@ -87,9 +88,14 @@ class MovingAverage(object):
         self.SMA_long_data = deque([0]*self.long_interval)
         self.SMA_short_data = deque([0]*self.short_interval)
 
+        # get exchange info for the trading limit
+        self.getExchangeInfo()
+        print("Min Price is: ", self.minPrice, " \nMin Quantity is: ", self.minQty)
+
         # trading volumn is used to get the real buy/sell price
         self.trading_vol = {'buy':0,'sell':0}
         self.initTradingVolumn()
+        print(self.trading_vol)
 
         # get the time offset to the server
         self.time_offset = BinanceRestLib.getServerTimeOffset()
@@ -163,7 +169,26 @@ class MovingAverage(object):
         # calculate the needed trading volumn
         self.trading_vol['buy'] = self.coin_vol/price
         self.trading_vol['sell'] = self.coin_vol/price
-        print(self.trading_vol)
+
+    def getExchangeInfo(self):
+        exchangeInfo = BinanceRestLib.getExchangeInfo()
+        # update exchange info in local
+        # file_out = open('C:/Users/Cibobo/Documents/Coins/Python/ExchangeInfo.txt','w+')
+        # json.dump(exchangeInfo, file_out)
+        # file_out.close()
+
+        # get exchange info 
+        # get all filters for the target trading symbol
+        filters = next(item for item in exchangeInfo['symbols'] if item['symbol'] == str(self.symbol))['filters']
+        
+        # minimum trading volumn unit
+        self.minQty = float(filters[1]['stepSize'])
+        
+        # minimum trading price unit
+        self.minPrice = float(filters[0]['tickSize'])
+
+        # calculate the precise
+        self.price_precise = int(-math.log10(self.minPrice))
 
     def updateSMA(self, SMA, SMA_data, interval, new_data):
         # the last SMA value
@@ -258,7 +283,7 @@ class MovingAverage(object):
             print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
             
             file_out_info = str(datetime.fromtimestamp(int(response[0][0]/1000)))
-            file_out_info = file_out_info + "Buy with price: " + str(price['asks_vol']) + "\n"
+            file_out_info = file_out_info + " Buy with price: " + str(price['asks_vol']) + "\n"
             file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
             self.writeLog(file_out_info)
 
