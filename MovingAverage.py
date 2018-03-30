@@ -222,30 +222,49 @@ class MovingAverage(object):
                 return 'INIT'
         
         if state == 'WAIT':
-            # print((SMA_25[i]-self.SMA_long[-1])/self.SMA_long[-1])
             # If SMA_7 through SMA_25 from under and the gradient of SMA25 is bigger than threshold
-            if self.SMA_short[-1] > self.SMA_long[-1] and gradientChcck(self.SMA_long[-2], self.SMA_long[-1], self.grad_SMA_long_threadhold):
+            if self.isBuyChance():
                 return 'BUY'
             else:
                 return 'WAIT'
 
         if state == 'BUY':
-            if self.SMA_short[-1] < self.SMA_long[-1]:
+            if self.isSellChance():
                 return 'SELL'
             else:
                 return 'HOLD'
 
         if state == 'HOLD':
-            if self.SMA_short[-1] < self.SMA_long[-1]:
+            if self.isSellChance():
                 return 'SELL'
             else:
                 return 'HOLD'
         
         if state == 'SELL':
-            if self.SMA_short[-1] > self.SMA_long[-1] and gradientChcck(self.SMA_long[-2], self.SMA_long[-1], self.grad_SMA_long_threadhold):
+            if self.isBuyChance():
                 return 'BUY'
             else:
                 return 'WAIT'
+
+    def isBuyChance(self):
+        if self.SMA_short[-1] > self.SMA_long[-1]: 
+        # grad_long = self.SMA_long[-1]-self.SMA_long[-2]
+        # grad_short = self.SMA_short[-1]-self.SMA_short[-2]
+        # # if the short SMA is going near to the long SMA, and has a bigger slope than the long SMA
+        # if (self.SMA_long[-1] - self.SMA_short[-1])/self.SMA_short[-1] > 0.1  and \
+        #     grad_short > grad_long and \
+        #     gradientChcck(self.SMA_long[-2], self.SMA_long[-1], self.grad_SMA_long_threadhold):
+            return True
+        else:
+            return False
+
+    def isSellChance(self):
+        # if self.SMA_short[-1] < self.SMA_long[-1]:
+        # if the SMA short is begin to going down
+        if self.SMA_short[-1] - self.SMA_short[-2] < 0:
+            return True
+        else:
+            return False
 
     def MATrading(self):
         # calculate how much time should be waiting for
