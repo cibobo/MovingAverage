@@ -247,7 +247,8 @@ class MovingAverage(object):
                 return 'WAIT'
 
     def isBuyChance(self):
-        if self.SMA_short[-1] > self.SMA_long[-1]: 
+        if self.SMA_short[-1] > self.SMA_long[-1] and \
+            gradientChcck(self.SMA_long[-2], self.SMA_long[-1], self.grad_SMA_long_threadhold): 
         # grad_long = self.SMA_long[-1]-self.SMA_long[-2]
         # grad_short = self.SMA_short[-1]-self.SMA_short[-2]
         # # if the short SMA is going near to the long SMA, and has a bigger slope than the long SMA
