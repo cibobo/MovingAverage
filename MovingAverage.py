@@ -87,11 +87,15 @@ class MovingAverage(object):
         self.SMA_long_data = deque([0]*self.long_interval)
         self.SMA_short_data = deque([0]*self.short_interval)
 
+        # trading volumn is used to get the real buy/sell price
+        self.trading_vol = {'buy':0,'sell':0}
+        self.initTradingVolumn()
+
         # get the time offset to the server
         self.time_offset = BinanceRestLib.getServerTimeOffset()
 
         # get the history raw data from server
-        self.getRawData()
+        self.initRawData()
         # calculate the first SMA data to start the trading
         self.initSMA()
 
@@ -106,7 +110,7 @@ class MovingAverage(object):
         # save the current timestamp to keep 1 min cyclic
         self.last_timestamp = time.time()
 
-    def getRawData(self):
+    def initRawData(self):
         # calculate how much history data are needed at the beginning
         need_limit = self.max_SMA_len + self.long_interval - 1
         # call API to get the raw data
@@ -152,6 +156,14 @@ class MovingAverage(object):
             print("Short SMA")
             print(self.SMA_short)
             print(self.SMA_short_data)
+
+    def initTradingVolumn(self):
+        # get the current price with the init trading volumn
+        price = BinanceRestLib.getCurrentPriceTicker(self.symbol[:-3], self.symbol[-3:])
+        # calculate the needed trading volumn
+        self.trading_vol['buy'] = self.coin_vol/price
+        self.trading_vol['sell'] = self.coin_vol/price
+        print(self.trading_vol)
 
     def updateSMA(self, SMA, SMA_data, interval, new_data):
         # the last SMA value
@@ -210,7 +222,6 @@ class MovingAverage(object):
             else:
                 return 'WAIT'
 
-
     def MATrading(self):
         # calculate how much time should be waiting for
         time_diff = time.time() - self.last_timestamp
@@ -236,13 +247,10 @@ class MovingAverage(object):
         # update trading state
         new_state = self.checkState(self.state)
         print("Current State is: ", new_state)
-        volumn = {}
-        volumn['buy'] = 850
-        volumn['sell'] = 850
 
         if new_state == 'BUY':
             # get current price
-            price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], volumn)
+            price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], self.trading_vol)
             # Simulate buy
             self.symbol_vol = self.coin_vol/price['asks_vol']
             self.coin_vol = 0
@@ -256,7 +264,7 @@ class MovingAverage(object):
 
         if new_state == 'SELL':
             # get current price
-            price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], volumn)
+            price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], self.trading_vol)
             # Simulate buy
             self.coin_vol = self.symbol_vol*price['bids_vol']
             self.symbol_vol = 0
