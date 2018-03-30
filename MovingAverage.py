@@ -98,6 +98,11 @@ class MovingAverage(object):
         # parameter to save the current trading state
         self.state = 'INIT'
 
+        # init log file
+        file_out = open('TradingInfo.log','a')
+        file_out.write(str(datetime.now())+'\n')
+        file_out.close()
+
         # save the current timestamp to keep 1 min cyclic
         self.last_timestamp = time.time()
 
@@ -222,10 +227,10 @@ class MovingAverage(object):
         self.updateSMA(self.SMA_short, self.SMA_short_data, self.short_interval, new_data)
 
         print("Itegration at time: ", datetime.fromtimestamp(int(response[0][0]/1000)))
-        print(self.SMA_long)
+        # print(self.SMA_long)
         # print(self.SMA_long_data)
-        print("Short SMA")
-        print(self.SMA_short)
+        # print("Short SMA")
+        # print(self.SMA_short)
         # print(self.SMA_short_data)
 
         # update trading state
@@ -243,6 +248,11 @@ class MovingAverage(object):
             self.coin_vol = 0
             print("Buy with price: ", price['asks_vol'])
             print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
+            
+            file_out_info = str(datetime.fromtimestamp(int(response[0][0]/1000)))
+            file_out_info = file_out_info + "Buy with price: " + str(price['asks_vol']) + "\n"
+            file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
+            self.writeLog(file_out_info)
 
         if new_state == 'SELL':
             # get current price
@@ -253,14 +263,24 @@ class MovingAverage(object):
             print("Sell with price: ", price['bids_vol'])
             print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
 
+            file_out_info = str(datetime.fromtimestamp(int(response[0][0]/1000)))
+            file_out_info = file_out_info + "Sell with price: " + str(price['bids_vol']) + "\n"
+            file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
+            self.writeLog(file_out_info)
+
         self.state = new_state
         # save the timestamp after all operations are executed
         self.last_timestamp = time.time()
 
+    def writeLog(self, info):
+        file_out = open('TradingInfo.log','a')
+        file_out.write(info + "\n")
+        file_out.close()
+        
 
 
 
-test = MovingAverage('TRXETH',25,7)
+test = MovingAverage('ONTETH',25,7)
 
 while True:
     test.MATrading()
