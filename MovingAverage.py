@@ -113,6 +113,11 @@ class MovingAverage(object):
         file_out.write(str(datetime.now())+'\n')
         file_out.close()
 
+        # Test Data
+        test_file = open("TestData.txt", 'a')
+        test_file.write("[")
+        test_file.close()
+
         # save the current timestamp to keep 1 min cyclic
         self.last_timestamp = time.time()
 
@@ -293,9 +298,12 @@ class MovingAverage(object):
         new_state = self.checkState(self.state)
         print("Current State is: ", new_state)
 
+        # get current price
+        price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], self.trading_vol)
+
         if new_state == 'BUY':
-            # get current price
-            price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], self.trading_vol)
+            # # get current price
+            # price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], self.trading_vol)
             # Simulate buy
             self.symbol_vol = self.coin_vol/price['asks_vol']
             self.coin_vol = 0
@@ -308,8 +316,8 @@ class MovingAverage(object):
             self.writeLog(file_out_info)
 
         if new_state == 'SELL':
-            # get current price
-            price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], self.trading_vol)
+            # # get current price
+            # price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], self.trading_vol)
             # Simulate buy
             self.coin_vol = self.symbol_vol*price['bids_vol']
             self.symbol_vol = 0
@@ -322,6 +330,16 @@ class MovingAverage(object):
             self.writeLog(file_out_info)
 
         self.state = new_state
+
+        # save all these data to local test
+        test_data = response[0]
+        test_data.append(price)
+        test_file = open("TestData.txt", 'a')
+        test_file.write(str(test_data))
+        test_file.write(", ")
+        test_file.close()
+
+
         # save the timestamp after all operations are executed
         self.last_timestamp = time.time()
 
