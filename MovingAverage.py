@@ -59,14 +59,14 @@ def gradientChcck(a, b, threadhold):
         
 
 class MovingAverage(object):
-    # maximum length of SMA queue
-    max_SMA_len = 10
+    # maximum length of MA queue
+    max_MA_len = 10
     # fixed candle interval
     #TODO: use other time interval instead the fixed 1m
     candle_interval = '1m'
 
-    # gradient threashold for the SMA long
-    grad_SMA_long_threadhold = 0
+    # gradient threashold for the MA long
+    grad_MA_long_threadhold = 0
 
     # Test coins
     symbol_vol = 0
@@ -76,17 +76,17 @@ class MovingAverage(object):
         self.symbol = symbol
         self.long_interval = long_interval
         self.short_interval = short_interval
-        # data index define which price should be used for SMA:
+        # data index define which price should be used for MA:
         # 1.open, 2.high, 3.low, 4.close
         self.data_index = data_index
 
-        # queue to save the history SMA data
-        self.SMA_long = deque([0]*self.max_SMA_len)
-        self.SMA_short = deque([0]*self.max_SMA_len)
+        # queue to save the history MA data
+        self.MA_long = deque([0]*self.max_MA_len)
+        self.MA_short = deque([0]*self.max_MA_len)
 
         # data queue to save the history candle data, the length equal to the interval
-        self.SMA_long_data = deque([0]*self.long_interval)
-        self.SMA_short_data = deque([0]*self.short_interval)
+        self.MA_long_data = deque([0]*self.long_interval)
+        self.MA_short_data = deque([0]*self.short_interval)
 
         # get exchange info for the trading limit
         self.getExchangeInfo()
@@ -100,10 +100,9 @@ class MovingAverage(object):
         # get the time offset to the server
         self.time_offset = BinanceRestLib.getServerTimeOffset()
 
-        # get the history raw data from server
-        self.initRawData()
         # calculate the first SMA data to start the trading
-        self.initSMA()
+        # self.initSMA()
+        self.initEMA()
 
         # parameter to save the current trading state
         self.state = 'INIT'
@@ -121,9 +120,7 @@ class MovingAverage(object):
         # save the current timestamp to keep 1 min cyclic
         self.last_timestamp = time.time()
 
-    def initRawData(self):
-        # calculate how much history data are needed at the beginning
-        need_limit = self.max_SMA_len + self.long_interval - 1
+    def initRawData(self, need_limit):
         # call API to get the raw data
         raw_data = getHistoryCandle(self.symbol, self.candle_interval, need_limit, self.time_offset)
         # get out only the needed index
@@ -132,41 +129,6 @@ class MovingAverage(object):
             self.data.append(float(raw_data[i][self.data_index]))
 
         print(self.data)
-
-    def initSMA(self):
-        # ----------------- hanlding of SAM Long -------------------------
-        # calculate the first SMA in SMA_long
-        SMA_long_0 = sum(self.data[:self.long_interval])/self.long_interval
-        # add this value into the queue and pop the left default value
-        self.SMA_long.popleft()
-        self.SMA_long.append(SMA_long_0)
-        # add also the raw data into history candle data queue for the future calculation
-        self.SMA_long_data = deque(self.data[:self.long_interval])
-
-        # ----------------- hanlding of SAM Short ------------------------
-        # calculate the first SMA in SMA_long
-        SMA_short_0 = sum(self.data[(self.long_interval-self.short_interval):self.long_interval])/self.short_interval
-        # add this value into the queue and pop the left default value
-        self.SMA_short.popleft()
-        self.SMA_short.append(SMA_short_0)
-        # add also the raw data into history candle data queue for the future calculation
-        self.SMA_short_data = deque(self.data[(self.long_interval-self.short_interval):self.long_interval])
-
-
-        # calculate the rest of the SMA with iterator algorithm
-        for i in range(1,self.max_SMA_len):
-            # the new raw data
-            new_data = self.data[self.long_interval+i-1]
-
-            self.updateSMA(self.SMA_long, self.SMA_long_data, self.long_interval, new_data)
-            self.updateSMA(self.SMA_short, self.SMA_short_data, self.short_interval, new_data)
-
-            print(i," th itegration is completed")
-            print(self.SMA_long)
-            print(self.SMA_long_data)
-            print("Short SMA")
-            print(self.SMA_short)
-            print(self.SMA_short_data)
 
     def initTradingVolumn(self):
         # get the current price with the init trading volumn
@@ -195,6 +157,46 @@ class MovingAverage(object):
         # calculate the precise
         self.price_precise = int(-math.log10(self.minPrice))
 
+    def initSMA(self):
+        # calculate how much history data are needed at the beginning
+        need_limit = self.max_MA_len + self.long_interval - 1
+        # # get the history raw data from server
+        self.initRawData(need_limit)
+
+        # ----------------- hanlding of SAM Long -------------------------
+        # calculate the first SMA in SMA_long
+        SMA_long_0 = sum(self.data[:self.long_interval])/self.long_interval
+        # add this value into the queue and pop the left default value
+        self.MA_long.popleft()
+        self.MA_long.append(SMA_long_0)
+        # add also the raw data into history candle data queue for the future calculation
+        self.MA_long_data = deque(self.data[:self.long_interval])
+
+        # ----------------- hanlding of SAM Short ------------------------
+        # calculate the first SMA in SMA_long
+        SMA_short_0 = sum(self.data[(self.long_interval-self.short_interval):self.long_interval])/self.short_interval
+        # add this value into the queue and pop the left default value
+        self.MA_short.popleft()
+        self.MA_short.append(SMA_short_0)
+        # add also the raw data into history candle data queue for the future calculation
+        self.MA_short_data = deque(self.data[(self.long_interval-self.short_interval):self.long_interval])
+
+
+        # calculate the rest of the SMA with iterator algorithm
+        for i in range(1,self.max_MA_len):
+            # the new raw data
+            new_data = self.data[self.long_interval+i-1]
+
+            self.updateSMA(self.MA_long, self.MA_long_data, self.long_interval, new_data)
+            self.updateSMA(self.MA_short, self.MA_short_data, self.short_interval, new_data)
+
+            print(i," th itegration is completed")
+            print(self.MA_long)
+            print(self.MA_long_data)
+            print("Short SMA")
+            print(self.MA_short)
+            print(self.MA_short_data)
+
     def updateSMA(self, SMA, SMA_data, interval, new_data):
         # the last SMA value
         temp = SMA[-1]
@@ -211,6 +213,44 @@ class MovingAverage(object):
         SMA.popleft()
         SMA.append(temp)
 
+    def initEMA(self):
+        # calculate how much history data are needed at the beginning
+        # the needed data set is calculated by expierent factor k=3.45
+        need_limit = self.max_MA_len + math.ceil((self.long_interval+1)*3.45) - 1
+        # get the history raw data from server
+        self.initRawData(need_limit)
+
+        # calculate the alpha
+        self.alpha_long = 2/(self.long_interval+1)
+        self.alpha_short = 2/(self.short_interval+1)
+        print("Long alpha: ", self.alpha_long, " | Short alpha: ", self.alpha_short)
+
+        # add first data as S_0 into the last position of queue
+        self.MA_long[-1] = self.data[0]
+        self.MA_short[-1] = self.data[0]
+
+        # calculate recusive for all other EMA value
+        for i in range(1,need_limit):
+            new_data = self.data[i]
+            self.updateEMA(self.MA_long, self.alpha_long, new_data)
+            # use all data to calulate short EMA, even if not all of them are needed.
+            self.updateEMA(self.MA_short, self.alpha_short, new_data)
+
+            print(i," th itegration is completed")
+            print(self.MA_long)
+            print("Short SMA")
+            print(self.MA_short)
+
+    def updateEMA(self, EMA, alpha, new_data):
+        # get the last EMA
+        temp = EMA[-1]
+        # calculate new EMA value
+        temp = alpha*new_data + (1-alpha)*temp
+        # add the new calculated SMA into the queue and remove the oldest one
+        EMA.popleft()
+        EMA.append(temp)
+
+
     def checkState(self, state):
         # define state maschine for the MA state change
         #             init
@@ -221,13 +261,12 @@ class MovingAverage(object):
         #        |             |
         #        ->-- hold* -->-
         if state == 'INIT':
-            if self.SMA_short[-1] <= self.SMA_long[-1]:
+            if self.MA_short[-1] <= self.MA_long[-1]:
                 return 'WAIT'
             else:
                 return 'INIT'
         
         if state == 'WAIT':
-            # If SMA_7 through SMA_25 from under and the gradient of SMA25 is bigger than threshold
             if self.isBuyChance():
                 return 'BUY'
             else:
@@ -253,33 +292,33 @@ class MovingAverage(object):
 
     def isBuyChance(self):
         # Checking Rule 1: 
-        #   a. SMA short through SMA long from below; 
-        #   b. SMA long is moving up
-        # if self.SMA_short[-1] > self.SMA_long[-1] and \
-        #     gradientChcck(self.SMA_long[-2], self.SMA_long[-1], self.grad_SMA_long_threadhold): 
+        #   a. MA short through MA long from below; 
+        #   b. MA long is moving up
+        # if self.MA_short[-1] > self.MA_long[-1] and \
+        #     gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold): 
 
         # Checking Rule 2: 
-        #   a. SMA short will be through SMA long from below acoording to a precondition with Linear Spline Interpolation
-        #   b. SMA long is moving up
-        SMA_long_pre = 2*self.SMA_long[-1] - self.SMA_long[-2]
-        SMA_short_pre = 2*self.SMA_short[-1] - self.SMA_short[-2]
-        if SMA_short_pre >= SMA_long_pre and \
-            gradientChcck(self.SMA_long[-2], self.SMA_long[-1], self.grad_SMA_long_threadhold): 
+        #   a. MA short will be through MA long from below acoording to a precondition with Linear Spline Interpolation
+        #   b. MA long is moving up
+        MA_long_pre = 2*self.MA_long[-1] - self.MA_long[-2]
+        MA_short_pre = 2*self.MA_short[-1] - self.MA_short[-2]
+        if MA_short_pre >= MA_long_pre and \
+            gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold): 
             return True
         else:
             return False
 
     def isSellChance(self):
-        # Checking Rule 1: if SMA short is going done through the SMA long from above
-        # if self.SMA_short[-1] < self.SMA_long[-1]:
+        # Checking Rule 1: if MA short is going done through the MA long from above
+        # if self.MA_short[-1] < self.MA_long[-1]:
 
-        # Checking Rule 2: if SMA short is begin to going down
-        # if self.SMA_short[-1] - self.SMA_short[-2] < 0:
+        # Checking Rule 2: if MA short is begin to going down
+        # if self.MA_short[-1] - self.MA_short[-2] < 0:
 
-        # Checking Rule 3: SMA short will be through SMA long from above acoording to a precondition with Linear Spline Interpolation
-        SMA_long_pre = 2*self.SMA_long[-1] - self.SMA_long[-2]
-        SMA_short_pre = 2*self.SMA_short[-1] - self.SMA_short[-2]
-        if SMA_short_pre <= SMA_long_pre:
+        # Checking Rule 3: MA short will be through MA long from above acoording to a precondition with Linear Spline Interpolation
+        MA_long_pre = 2*self.MA_long[-1] - self.MA_long[-2]
+        MA_short_pre = 2*self.MA_short[-1] - self.MA_short[-2]
+        if MA_short_pre <= MA_long_pre:
             return True
         else:
             return False
@@ -295,16 +334,19 @@ class MovingAverage(object):
         print(response)
 
         new_data = float(response[0][self.data_index])
-        # update SMA array and Data array
-        self.updateSMA(self.SMA_long, self.SMA_long_data, self.long_interval, new_data)
-        self.updateSMA(self.SMA_short, self.SMA_short_data, self.short_interval, new_data)
+        # update MA array and Data array
+        # self.updateSMA(self.MA_long, self.MA_long_data, self.long_interval, new_data)
+        # self.updateSMA(self.MA_short, self.MA_short_data, self.short_interval, new_data)
+
+        self.updateEMA(self.MA_long, self.alpha_long, new_data)
+        self.updateEMA(self.MA_short, self.alpha_short, new_data)
 
         print("Itegration at time: ", datetime.fromtimestamp(int(response[0][0]/1000)))
-        # print(self.SMA_long)
-        # print(self.SMA_long_data)
-        # print("Short SMA")
-        # print(self.SMA_short)
-        # print(self.SMA_short_data)
+        print(self.MA_long)
+        # print(self.MA_long_data)
+        print("Short MA")
+        print(self.MA_short)
+        # print(self.MA_short_data)
 
         # update trading state
         new_state = self.checkState(self.state)
@@ -325,7 +367,8 @@ class MovingAverage(object):
             file_out_info = str(datetime.fromtimestamp(int(response[0][0]/1000)))
             file_out_info = file_out_info + " Buy with price: " + str(price['asks_vol']) + "\n"
             file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
-            file_out_info = file_out_info + "Current SMA long value is: " + str(self.SMA_long[-1]) + " | SAM short value is: " + str(self.SMA_short[-1]) + "\n"
+            file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
+            file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
             self.writeLog(file_out_info)
 
         if new_state == 'SELL':
@@ -340,7 +383,8 @@ class MovingAverage(object):
             file_out_info = str(datetime.now())
             file_out_info = file_out_info + "Sell with price: " + str(price['bids_vol']) + "\n"
             file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
-            file_out_info = file_out_info + "Current SMA long value is: " + str(self.SMA_long[-1]) + " | SAM short value is: " + str(self.SMA_short[-1]) + "\n"
+            file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
+            file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
             self.writeLog(file_out_info)
 
         self.state = new_state
