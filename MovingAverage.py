@@ -252,22 +252,34 @@ class MovingAverage(object):
                 return 'WAIT'
 
     def isBuyChance(self):
-        if self.SMA_short[-1] > self.SMA_long[-1] and \
+        # Checking Rule 1: 
+        #   a. SMA short through SMA long from below; 
+        #   b. SMA long is moving up
+        # if self.SMA_short[-1] > self.SMA_long[-1] and \
+        #     gradientChcck(self.SMA_long[-2], self.SMA_long[-1], self.grad_SMA_long_threadhold): 
+
+        # Checking Rule 2: 
+        #   a. SMA short will be through SMA long from below acoording to a precondition with Linear Spline Interpolation
+        #   b. SMA long is moving up
+        SMA_long_pre = 2*self.SMA_long[-1] - self.SMA_long[-2]
+        SMA_short_pre = 2*self.SMA_short[-1] - self.SMA_short[-2]
+        if SMA_short_pre >= SMA_long_pre and \
             gradientChcck(self.SMA_long[-2], self.SMA_long[-1], self.grad_SMA_long_threadhold): 
-        # grad_long = self.SMA_long[-1]-self.SMA_long[-2]
-        # grad_short = self.SMA_short[-1]-self.SMA_short[-2]
-        # # if the short SMA is going near to the long SMA, and has a bigger slope than the long SMA
-        # if (self.SMA_long[-1] - self.SMA_short[-1])/self.SMA_short[-1] > 0.1  and \
-        #     grad_short > grad_long and \
-        #     gradientChcck(self.SMA_long[-2], self.SMA_long[-1], self.grad_SMA_long_threadhold):
             return True
         else:
             return False
 
     def isSellChance(self):
+        # Checking Rule 1: if SMA short is going done through the SMA long from above
         # if self.SMA_short[-1] < self.SMA_long[-1]:
-        # if the SMA short is begin to going down
-        if self.SMA_short[-1] - self.SMA_short[-2] < 0:
+
+        # Checking Rule 2: if SMA short is begin to going down
+        # if self.SMA_short[-1] - self.SMA_short[-2] < 0:
+
+        # Checking Rule 3: SMA short will be through SMA long from above acoording to a precondition with Linear Spline Interpolation
+        SMA_long_pre = 2*self.SMA_long[-1] - self.SMA_long[-2]
+        SMA_short_pre = 2*self.SMA_short[-1] - self.SMA_short[-2]
+        if SMA_short_pre <= SMA_long_pre:
             return True
         else:
             return False
@@ -307,12 +319,13 @@ class MovingAverage(object):
             # Simulate buy
             self.symbol_vol = self.coin_vol/price['asks_vol']
             self.coin_vol = 0
-            print("Buy with price: ", price['asks_vol'])
+            print("Buy with price: ", price['asks_vol'], "@ ", datetime.now())
             print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
             
             file_out_info = str(datetime.fromtimestamp(int(response[0][0]/1000)))
             file_out_info = file_out_info + " Buy with price: " + str(price['asks_vol']) + "\n"
             file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
+            file_out_info = file_out_info + "Current SMA long value is: " + str(self.SMA_long[-1]) + " | SAM short value is: " + str(self.SMA_short[-1]) + "\n"
             self.writeLog(file_out_info)
 
         if new_state == 'SELL':
@@ -321,12 +334,13 @@ class MovingAverage(object):
             # Simulate buy
             self.coin_vol = self.symbol_vol*price['bids_vol']
             self.symbol_vol = 0
-            print("Sell with price: ", price['bids_vol'])
+            print("Sell with price: ", price['bids_vol'], "@ ", datetime.now())
             print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
 
-            file_out_info = str(datetime.fromtimestamp(int(response[0][0]/1000)))
+            file_out_info = str(datetime.now())
             file_out_info = file_out_info + "Sell with price: " + str(price['bids_vol']) + "\n"
             file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
+            file_out_info = file_out_info + "Current SMA long value is: " + str(self.SMA_long[-1]) + " | SAM short value is: " + str(self.SMA_short[-1]) + "\n"
             self.writeLog(file_out_info)
 
         self.state = new_state
@@ -351,7 +365,7 @@ class MovingAverage(object):
 
 
 
-test = MovingAverage('ONTETH',25,7)
+test = MovingAverage('TRXETH',25,7)
 
 while True:
     test.MATrading()
