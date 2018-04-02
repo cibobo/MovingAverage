@@ -104,6 +104,8 @@ class MovingAverage(object):
         # self.initSMA()
         self.initEMA()
 
+        # self.initTestData()
+
         # parameter to save the current trading state
         self.state = 'INIT'
 
@@ -250,6 +252,31 @@ class MovingAverage(object):
         EMA.popleft()
         EMA.append(temp)
 
+    def initTestData(self):
+        file_in = open('C:/Users/Cibobo/Documents/Coins/Python/MA/TestData_ONT_24H.txt', 'r+')
+        self.test_data = deque(json.loads(file_in.read()))
+        file_in.close()
+
+        self.alpha_long = 2/(self.long_interval+1)
+        self.alpha_short = 2/(self.short_interval+1)
+        print("Long alpha: ", self.alpha_long, " | Short alpha: ", self.alpha_short)
+
+        need_limit = self.max_MA_len + math.ceil((self.long_interval+1)*3.45) - 1
+        first_test_data = self.test_data.popleft()
+        self.MA_long[-1] = float(first_test_data[self.data_index])
+        self.MA_short[-1] = float(first_test_data[self.data_index])
+
+        for i in range(1,need_limit):
+            new_data = float(self.test_data.popleft()[self.data_index])
+            self.updateEMA(self.MA_long, self.alpha_long, new_data)
+            # use all data to calulate short EMA, even if not all of them are needed.
+            self.updateEMA(self.MA_short, self.alpha_short, new_data)
+
+            print(i," th itegration is completed")
+            print(self.MA_long)
+            print("Short SMA")
+            print(self.MA_short)
+
 
     def checkState(self, state):
         # define state maschine for the MA state change
@@ -364,12 +391,12 @@ class MovingAverage(object):
             print("Buy with price: ", price['asks_vol'], "@ ", datetime.now())
             print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
             
-            file_out_info = str(datetime.fromtimestamp(int(response[0][0]/1000)))
-            file_out_info = file_out_info + " Buy with price: " + str(price['asks_vol']) + "\n"
-            file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
-            file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
-            file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
-            self.writeLog(file_out_info)
+            # file_out_info = str(datetime.fromtimestamp(int(response[0][0]/1000)))
+            # file_out_info = file_out_info + " Buy with price: " + str(price['asks_vol']) + "\n"
+            # file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
+            # file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
+            # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
+            self.writeLog(datetime.now(), price, "Buy")
 
         if new_state == 'SELL':
             # # get current price
@@ -380,12 +407,12 @@ class MovingAverage(object):
             print("Sell with price: ", price['bids_vol'], "@ ", datetime.now())
             print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
 
-            file_out_info = str(datetime.now())
-            file_out_info = file_out_info + "Sell with price: " + str(price['bids_vol']) + "\n"
-            file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
-            file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
-            file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
-            self.writeLog(file_out_info)
+            # file_out_info = str(datetime.now())
+            # file_out_info = file_out_info + "Sell with price: " + str(price['bids_vol']) + "\n"
+            # file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
+            # file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
+            # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
+            self.writeLog(datetime.now(), price, "Sell")
 
         self.state = new_state
 
@@ -401,9 +428,68 @@ class MovingAverage(object):
         # save the timestamp after all operations are executed
         self.last_timestamp = time.time()
 
-    def writeLog(self, info):
+    def MATradingTest(self):
+        current_test_data = self.test_data.popleft()
+        new_data = float(current_test_data[self.data_index])
+        # update MA array and Data array
+        # self.updateSMA(self.MA_long, self.MA_long_data, self.long_interval, new_data)
+        # self.updateSMA(self.MA_short, self.MA_short_data, self.short_interval, new_data)
+
+        self.updateEMA(self.MA_long, self.alpha_long, new_data)
+        self.updateEMA(self.MA_short, self.alpha_short, new_data)
+
+        print("Itegration at time: ", datetime.fromtimestamp(int(current_test_data[0]/1000)))
+        print(self.MA_long)
+        print("Short MA")
+        print(self.MA_short)
+
+        new_state = self.checkState(self.state)
+        print("Current State is: ", new_state)
+
+        price = current_test_data[12]
+        if new_state == 'BUY':
+            # Simulate buy
+            self.symbol_vol = self.coin_vol/float(price['asks_vol'])
+            self.coin_vol = 0
+            print("Buy with price: ", price['asks_vol'], "@ ", datetime.now())
+            print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
+            
+            # file_out_info = str(datetime.fromtimestamp(int(current_test_data[0]/1000)))
+            # file_out_info = file_out_info + " Buy with price: " + str(price['asks_vol']) + "\n"
+            # file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
+            # file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
+            # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
+            self.writeLog(int(current_test_data[0]/1000), price, "Buy")
+
+        if new_state == 'SELL':
+            # Simulate Sell
+            self.coin_vol = self.symbol_vol*float(price['bids_vol'])
+            self.symbol_vol = 0
+            print("Sell with price: ", price['bids_vol'], "@ ", datetime.now())
+            print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
+
+            # file_out_info = str(datetime.fromtimestamp(int(current_test_data[0]/1000)))
+            # file_out_info = file_out_info + "Sell with price: " + str(price['bids_vol']) + "\n"
+            # file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
+            # file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
+            # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
+            self.writeLog(int(current_test_data[0]/1000), price, "Sell")
+
+        self.state = new_state
+
+    def writeLog(self, timestamp, price, trading_type):
         file_out = open('TradingInfo.log','a')
-        file_out.write(info + "\n")
+        file_out.write(str(datetime.fromtimestamp(timestamp)))
+
+        if trading_type == "Buy":
+            file_out.write(" Buy with price: " + str(price['asks_vol']) + "\n")
+        else:
+            file_out.write(" Sell with price: " + str(price['bids_vol']) + "\n")
+
+        file_out.write("Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n")
+        file_out.write("Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n")
+        file_out.write("Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n")
+        file_out.write("\n")
         file_out.close()
         
 
@@ -413,6 +499,7 @@ test = MovingAverage('TRXETH',25,7)
 
 while True:
     test.MATrading()
+    # test.MATradingTest()
 
 print(test.symbol_vol)
 print(test.coin_vol)
