@@ -115,9 +115,7 @@ class MovingAverage(object):
         file_out.close()
 
         # Test Data
-        test_file = open("TestData.txt", 'a')
-        test_file.write("[")
-        test_file.close()
+        self.initSaveTestData()
 
         # save the current timestamp to keep 1 min cyclic
         self.last_timestamp = time.time()
@@ -277,7 +275,6 @@ class MovingAverage(object):
             print("Short SMA")
             print(self.MA_short)
 
-
     def checkState(self, state):
         # define state maschine for the MA state change
         #             init
@@ -419,11 +416,7 @@ class MovingAverage(object):
         # save all these data to local test
         test_data = response[0]
         test_data.append(price)
-        test_file = open("TestData.txt", 'a')
-        test_file.write(str(test_data))
-        test_file.write(", ")
-        test_file.close()
-
+        self.saveTestData(test_data)
 
         # save the timestamp after all operations are executed
         self.last_timestamp = time.time()
@@ -491,6 +484,29 @@ class MovingAverage(object):
         file_out.write("Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n")
         file_out.write("\n")
         file_out.close()
+
+    def initSaveTestData(self):
+        self.test_data_save_name = "TestData_" + self.symbol + "_" + datetime.now().strftime("%Y_%m_%d_%H_%M") 
+        test_file = open(self.test_data_save_name, 'a')
+        test_file.write("[")
+        test_file.close()
+        self.test_data_save_begin = time.time()
+
+    def saveTestData(self, test_data):
+        test_file = open(self.test_data_save_name, 'a')
+        
+        # create a new log file in every 24 Hour
+        if time.time() - self.test_data_save_begin > 86400:
+            # add the last data into the old file and close it 
+            test_file.write(str(test_data))
+            test_file.write("]")
+            test_file.close()
+            # create a new log
+            self.initSaveTestData()
+        else:
+            test_file.write(str(test_data))
+            test_file.write(", ")
+            test_file.close()
         
 
 
