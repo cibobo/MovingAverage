@@ -418,6 +418,7 @@ class MovingAverage(object):
         test_data.append(price)
         self.saveTestData(test_data)
 
+
         # save the timestamp after all operations are executed
         self.last_timestamp = time.time()
 
@@ -472,7 +473,7 @@ class MovingAverage(object):
 
     def writeLog(self, timestamp, price, trading_type):
         file_out = open('TradingInfo.log','a')
-        file_out.write(str(datetime.fromtimestamp(timestamp)))
+        file_out.write(str(datetime.fromtimestamp(int(timestamp))))
 
         if trading_type == "Buy":
             file_out.write(" Buy with price: " + str(price['asks_vol']) + "\n")
