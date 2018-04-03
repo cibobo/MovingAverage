@@ -393,7 +393,7 @@ class MovingAverage(object):
             # file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
             # file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
             # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
-            self.writeLog(datetime.now(), price, "Buy")
+            self.writeLog(time.time(), price, "Buy")
 
         if new_state == 'SELL':
             # # get current price
@@ -409,7 +409,7 @@ class MovingAverage(object):
             # file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
             # file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
             # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
-            self.writeLog(datetime.now(), price, "Sell")
+            self.writeLog(time.time(), price, "Sell")
 
         self.state = new_state
 
@@ -473,7 +473,7 @@ class MovingAverage(object):
 
     def writeLog(self, timestamp, price, trading_type):
         file_out = open('TradingInfo.log','a')
-        file_out.write(str(datetime.fromtimestamp(int(timestamp))))
+        file_out.write(str(datetime.fromtimestamp(timestamp)))
 
         if trading_type == "Buy":
             file_out.write(" Buy with price: " + str(price['asks_vol']) + "\n")
