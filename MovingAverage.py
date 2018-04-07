@@ -72,7 +72,7 @@ class MovingAverage(object):
     symbol_vol = 0
     coin_vol = 0.1
 
-    def __init__(self, symbol, long_interval, short_interval, data_index=4):
+    def __init__(self, symbol, long_interval, short_interval, isTest, data_index=4):
         self.symbol = symbol
         self.long_interval = long_interval
         self.short_interval = short_interval
@@ -100,22 +100,23 @@ class MovingAverage(object):
         # get the time offset to the server
         self.time_offset = BinanceRestLib.getServerTimeOffset()
 
-        # calculate the first SMA data to start the trading
-        # self.initSMA()
-        self.initEMA()
-
-        # self.initTestData()
-
         # parameter to save the current trading state
         self.state = 'INIT'
+
+        if isTest:
+            self.initTestData()
+        else:
+            # calculate the first SMA data to start the trading
+            # self.initSMA()
+            self.initEMA()
+            # Save trading data for further test
+            self.initSaveTestData()
+
 
         # init log file
         file_out = open('TradingInfo.log','a')
         file_out.write(str(datetime.now())+'\n')
         file_out.close()
-
-        # Test Data
-        self.initSaveTestData()
 
         # save the current timestamp to keep 1 min cyclic
         self.last_timestamp = time.time()
@@ -251,7 +252,7 @@ class MovingAverage(object):
         EMA.append(temp)
 
     def initTestData(self):
-        file_in = open('C:/Users/Cibobo/Documents/Coins/Python/MA/TestData_ONT_24H.txt', 'r+')
+        file_in = open('C:/Users/Cibobo/Documents/Coins/Python/MA/TestData_TRX_24H.txt', 'r+')
         self.test_data = deque(json.loads(file_in.read()))
         file_in.close()
 
@@ -274,6 +275,12 @@ class MovingAverage(object):
             print(self.MA_long)
             print("Short SMA")
             print(self.MA_short)
+
+        # Data Array for Visulaization
+        self.buy_timestamp = []
+        self.buy_price = []
+        self.sell_timestamp = []
+        self.sell_price = []
 
     def checkState(self, state):
         # define state maschine for the MA state change
@@ -318,31 +325,35 @@ class MovingAverage(object):
         # Checking Rule 1: 
         #   a. MA short through MA long from below; 
         #   b. MA long is moving up
-        # if self.MA_short[-1] > self.MA_long[-1] and \
-        #     gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold): 
+        if self.MA_short[-1] - self.MA_long[-1] > 1.0e-08 and \
+            gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold): 
+            print(self.MA_short[-1] - self.MA_long[-1], end=" | ")
+            print((self.MA_long[-1]-self.MA_long[-2])/self.MA_long[-2], end=" | ")
 
         # Checking Rule 2: 
         #   a. MA short will be through MA long from below acoording to a precondition with Linear Spline Interpolation
         #   b. MA long is moving up
-        MA_long_pre = 2*self.MA_long[-1] - self.MA_long[-2]
-        MA_short_pre = 2*self.MA_short[-1] - self.MA_short[-2]
-        if MA_short_pre >= MA_long_pre and \
-            gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold): 
+        # MA_long_pre = 2*self.MA_long[-1] - self.MA_long[-2]
+        # MA_short_pre = 2*self.MA_short[-1] - self.MA_short[-2]
+        # if MA_short_pre - MA_long_pre >= 1.0e-08 and \
+        #     gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold):
+        #     print(MA_short_pre - MA_long_pre, end=" | ")
+        #     print((self.MA_long[-1]-self.MA_long[-2])/self.MA_long[-2], end=" | ") 
             return True
         else:
             return False
 
     def isSellChance(self):
         # Checking Rule 1: if MA short is going done through the MA long from above
-        # if self.MA_short[-1] < self.MA_long[-1]:
+        if self.MA_short[-1] < self.MA_long[-1]:
 
         # Checking Rule 2: if MA short is begin to going down
         # if self.MA_short[-1] - self.MA_short[-2] < 0:
 
         # Checking Rule 3: MA short will be through MA long from above acoording to a precondition with Linear Spline Interpolation
-        MA_long_pre = 2*self.MA_long[-1] - self.MA_long[-2]
-        MA_short_pre = 2*self.MA_short[-1] - self.MA_short[-2]
-        if MA_short_pre <= MA_long_pre:
+        # MA_long_pre = 2*self.MA_long[-1] - self.MA_long[-2]
+        # MA_short_pre = 2*self.MA_short[-1] - self.MA_short[-2]
+        # if MA_short_pre <= MA_long_pre:
             return True
         else:
             return False
@@ -432,42 +443,47 @@ class MovingAverage(object):
         self.updateEMA(self.MA_long, self.alpha_long, new_data)
         self.updateEMA(self.MA_short, self.alpha_short, new_data)
 
-        print("Itegration at time: ", datetime.fromtimestamp(int(current_test_data[0]/1000)))
-        print(self.MA_long)
-        print("Short MA")
-        print(self.MA_short)
+        # print("Itegration at time: ", datetime.fromtimestamp(int(current_test_data[0]/1000)))
+        # print(self.MA_long)
+        # print("Short MA")
+        # print(self.MA_short)
 
         new_state = self.checkState(self.state)
-        print("Current State is: ", new_state)
+        # print("Current State is: ", new_state)
 
         price = current_test_data[12]
         if new_state == 'BUY':
             # Simulate buy
             self.symbol_vol = self.coin_vol/float(price['asks_vol'])
             self.coin_vol = 0
-            print("Buy with price: ", price['asks_vol'], "@ ", datetime.now())
-            print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
+            # print("Buy with price: ", price['asks_vol'], "@ ", datetime.now())
+            # print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
             
-            # file_out_info = str(datetime.fromtimestamp(int(current_test_data[0]/1000)))
-            # file_out_info = file_out_info + " Buy with price: " + str(price['asks_vol']) + "\n"
-            # file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
-            # file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
-            # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
             self.writeLog(int(current_test_data[0]/1000), price, "Buy")
+            # print("Buy @", int(current_test_data[0]/1000), "with price: ", price['asks_vol'])
+            
+            # save trading info for visualization
+            self.buy_timestamp.append(int(current_test_data[0]/1000))
+            self.buy_price.append(float(price['asks_vol']))
+            print(price['asks_vol'], end=" | ")
+
 
         if new_state == 'SELL':
             # Simulate Sell
             self.coin_vol = self.symbol_vol*float(price['bids_vol'])
             self.symbol_vol = 0
-            print("Sell with price: ", price['bids_vol'], "@ ", datetime.now())
-            print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
+            # print("Sell with price: ", price['bids_vol'], "@ ", datetime.now())
+            # print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
 
-            # file_out_info = str(datetime.fromtimestamp(int(current_test_data[0]/1000)))
-            # file_out_info = file_out_info + "Sell with price: " + str(price['bids_vol']) + "\n"
-            # file_out_info = file_out_info + "Calculate balance is: Symbol: " + str(self.symbol_vol) + " | Coin : " + str(self.coin_vol) + "\n"
-            # file_out_info = file_out_info + "Last MA long value is: " + str(self.MA_long[-2]) + " | AM short value is: " + str(self.MA_short[-2]) + "\n"
-            # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
             self.writeLog(int(current_test_data[0]/1000), price, "Sell")
+            # print("Sell @", int(current_test_data[0]/1000), "with price: ", price['bids_vol'])
+
+            # save trading info for visualization
+            self.sell_timestamp.append(int(current_test_data[0]/1000))
+            self.sell_price.append(float(price['bids_vol']))
+            # print("Price diff: ", float(price['bids_vol'])-self.buy_price[-1])
+            print(float(price['bids_vol'])-self.buy_price[-1])
+            print()
 
         self.state = new_state
 
@@ -486,6 +502,7 @@ class MovingAverage(object):
         file_out.write("\n")
         file_out.close()
 
+    # Save trading data for further test
     def initSaveTestData(self):
         self.test_data_save_name = "TestData_" + self.symbol + "_" + datetime.now().strftime("%Y_%m_%d_%H_%M") 
         test_file = open(self.test_data_save_name, 'a')
@@ -511,12 +528,17 @@ class MovingAverage(object):
         
 
 
-
-test = MovingAverage('TRXETH',25,7)
+isTest = False
+test = MovingAverage('TRXETH',25,7,isTest)
 
 while True:
     test.MATrading()
-    # test.MATradingTest()
+
+# while len(test.test_data)>0:
+#     test.MATradingTest()
 
 print(test.symbol_vol)
 print(test.coin_vol)
+
+
+
