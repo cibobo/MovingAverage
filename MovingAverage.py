@@ -529,7 +529,7 @@ class MovingAverage(object):
 
 
 isTest = False
-test = MovingAverage('XRPETH',25,7,isTest)
+test = MovingAverage('EOSETH',25,7,isTest)
 
 while True:
     test.MATrading()
