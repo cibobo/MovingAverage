@@ -56,7 +56,39 @@ def gradientChcck(a, b, threadhold):
         return True
     else:
         return False
+ 
+# convert candle data from 1 min cyclic to N min
+def dataConvert1mToNm(data, N):
+    convertData = []
+    data_length = int(len(data)/N)*N
+    print(data_length)
+    for i in range(0, data_length, N):
+        # init temp with first data element
+        temp = data[i]
+        for j in range(1,N):
+            # get highest as high
+            if data[i+j][2] > temp[2]:
+                temp[2] = data[i+j][2]
+            # get lowest as low
+            if data[i+j][3] < temp[3]:
+                temp[3] = data[i+j][3]
+            # add volumn
+            temp[5] += data[i+j][5]
+            # add other infors from position 7~11
+            temp[7:12] = [sum(x) for x in zip(temp[7:12], data[i+j][7:12])]
         
+        # set close price and close time from last element in N min
+        temp[4] = data[i+N-1][4]
+        temp[6] = data[i+N-1][6]
+
+        # set the current price also fromt the lase minute
+        temp[12] = data[i+N-1][12]
+
+        # add the converted data into list
+        convertData.append(temp)
+        
+    return convertData
+       
 
 class MovingAverage(object):
     # maximum length of MA queue
@@ -71,6 +103,11 @@ class MovingAverage(object):
     # Test coins
     symbol_vol = 0
     coin_vol = 0.1
+
+    # Diff factor
+    diff_factor = 0.00013
+    # Stop loss factor
+    loss_factor = 1
 
     def __init__(self, symbol, long_interval, short_interval, isTest, data_index=4):
         self.symbol = symbol
@@ -112,6 +149,8 @@ class MovingAverage(object):
             # Save trading data for further test
             self.initSaveTestData()
 
+        # Delta used to increase the long EMA value, in order to trigger a new buy change after stop loss
+        self.delta = 0
 
         # init log file
         file_out = open('TradingInfo.log','a')
@@ -252,8 +291,14 @@ class MovingAverage(object):
         EMA.append(temp)
 
     def initTestData(self):
-        file_in = open('C:/Users/Cibobo/Documents/Coins/Python/MA/TestData_TRX_24H.txt', 'r+')
-        self.test_data = deque(json.loads(file_in.read()))
+        file_in = open('C:/Users/Cibobo/Documents/Coins/Python/MA/TestData/TestDataAll/TestData_EOSETH_2018_05_03_07_01', 'r+')
+        # self.visual_data = json.loads(file_in.read())
+        # self.test_data = deque(self.visual_data)
+
+        # Test with 5 min candle data
+        self.visual_data = dataConvert1mToNm(json.loads(file_in.read()), 1)
+        self.test_data = deque(self.visual_data)
+
         file_in.close()
 
         self.alpha_long = 2/(self.long_interval+1)
@@ -271,10 +316,10 @@ class MovingAverage(object):
             # use all data to calulate short EMA, even if not all of them are needed.
             self.updateEMA(self.MA_short, self.alpha_short, new_data)
 
-            print(i," th itegration is completed")
-            print(self.MA_long)
-            print("Short SMA")
-            print(self.MA_short)
+            # print(i," th itegration is completed")
+            # print(self.MA_long)
+            # print("Short SMA")
+            # print(self.MA_short)
 
         # Data Array for Visulaization
         self.buy_timestamp = []
@@ -325,10 +370,19 @@ class MovingAverage(object):
         # Checking Rule 1: 
         #   a. MA short through MA long from below; 
         #   b. MA long is moving up
-        if self.MA_short[-1] - self.MA_long[-1] > 1.0e-08 and \
-            gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold): 
-            print(self.MA_short[-1] - self.MA_long[-1], end=" | ")
-            print((self.MA_long[-1]-self.MA_long[-2])/self.MA_long[-2], end=" | ")
+      # if self.MA_short[-1] - self.MA_long[-1] > self.diff_factor*self.MA_long[-1] and \
+        #     (self.MA_short[-2] - self.MA_long[-2] < 0 or self.MA_short[-3] - self.MA_long[-3] < 0)  and \
+        #     gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold): 
+        #     print(self.MA_short[-1] - self.MA_long[-1], end=" | ")
+        #     print((self.MA_long[-1]-self.MA_long[-2])/self.MA_long[-2], end=" | ")
+
+        # Checking Rule 1 with delta: 
+        #   a. MA short through MA long from below; 
+        #   b. MA long is moving up
+        # if self.MA_short[-1] - (self.MA_long[-1]+self.delta) > 1.0e-08 and \
+        #     gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold): 
+        #     print(self.MA_short[-1] - self.MA_long[-1], end=" | ")
+        #     print((self.MA_long[-1]-self.MA_long[-2])/self.MA_long[-2], end=" | ")
 
         # Checking Rule 2: 
         #   a. MA short will be through MA long from below acoording to a precondition with Linear Spline Interpolation
@@ -339,6 +393,18 @@ class MovingAverage(object):
         #     gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold):
         #     print(MA_short_pre - MA_long_pre, end=" | ")
         #     print((self.MA_long[-1]-self.MA_long[-2])/self.MA_long[-2], end=" | ") 
+ 
+        # Checking Rule 3:
+        #   a. MA short through MA long from below at t1; 
+        #   b. MA long is moving up at t1;
+        #   c. MA short is moving up at t1+1
+        if self.MA_short[-2] - self.MA_long[-2] > self.diff_factor*self.MA_long[-2] and \
+            self.MA_short[-3] - self.MA_long[-3] < 0 and \
+            gradientChcck(self.MA_long[-3], self.MA_long[-2], self.grad_MA_long_threadhold) and \
+            self.MA_short[-1]>self.MA_short[-2]: 
+            print(self.MA_short[-2] - self.MA_long[-2], end=" | ")
+            print((self.MA_long[-2]-self.MA_long[-3])/self.MA_long[-3], end=" | ")
+
             return True
         else:
             return False
@@ -422,6 +488,19 @@ class MovingAverage(object):
             # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
             self.writeLog(time.time(), price, "Sell")
 
+        if new_state == 'HOLD':
+            # create a stop loss condition if it is needed
+            # if the current price is less than the last buy price
+            if float(price['asks_vol']) < self.buy_price[-1]*self.loss_factor:
+                print("Special cast: stop loss--------------------")
+                self.coin_vol = self.symbol_vol*float(price['bids_vol'])
+                self.symbol_vol = 0
+                new_state = 'SELL'
+
+                print("Sell with price: ", price['bids_vol'], "@ ", datetime.now())
+                print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
+                self.writeLog(time.time(), price, "Sell")
+
         self.state = new_state
 
         # save all these data to local test
@@ -466,6 +545,7 @@ class MovingAverage(object):
             self.buy_timestamp.append(int(current_test_data[0]/1000))
             self.buy_price.append(float(price['asks_vol']))
             print(price['asks_vol'], end=" | ")
+            print(price['asks_vol']-self.MA_long[-1], end=" | ")
 
 
         if new_state == 'SELL':
@@ -484,6 +564,22 @@ class MovingAverage(object):
             # print("Price diff: ", float(price['bids_vol'])-self.buy_price[-1])
             print(float(price['bids_vol'])-self.buy_price[-1])
             print()
+
+        if new_state == 'HOLD':
+            # create a stop loss condition if it is needed
+            # if the current price is less than the last buy price
+            if float(price['asks_vol']) < self.buy_price[-1]*self.loss_factor:
+                print("Special cast: stop loss")
+                self.coin_vol = self.symbol_vol*float(price['bids_vol'])
+                self.symbol_vol = 0
+                self.writeLog(int(current_test_data[0]/1000), price, "Sell")
+                self.sell_timestamp.append(int(current_test_data[0]/1000))
+                self.sell_price.append(float(price['bids_vol']))
+                new_state = 'SELL'
+                # set delta value
+                # self.delta = self.MA_short[-1] - self.MA_long[-1]
+                # print("Current delta: ", self.delta)
+                
 
         self.state = new_state
 
