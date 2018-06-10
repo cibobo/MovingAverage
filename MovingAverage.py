@@ -462,6 +462,7 @@ class MovingAverage(object):
             # Simulate buy
             self.symbol_vol = self.coin_vol/price['asks_vol']
             self.coin_vol = 0
+            self.buy_price = price['asks_vol']
             print("Buy with price: ", price['asks_vol'], "@ ", datetime.now())
             print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
             
@@ -491,7 +492,7 @@ class MovingAverage(object):
         if new_state == 'HOLD':
             # create a stop loss condition if it is needed
             # if the current price is less than the last buy price
-            if float(price['asks_vol']) < self.buy_price[-1]*self.loss_factor:
+            if float(price['asks_vol']) < self.buy_price*self.loss_factor:
                 print("Special cast: stop loss--------------------")
                 self.coin_vol = self.symbol_vol*float(price['bids_vol'])
                 self.symbol_vol = 0
