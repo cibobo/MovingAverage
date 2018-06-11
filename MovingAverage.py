@@ -443,10 +443,10 @@ class MovingAverage(object):
         self.updateEMA(self.MA_short, self.alpha_short, new_data)
 
         print("Itegration at time: ", datetime.fromtimestamp(int(response[0][0]/1000)))
-        print(self.MA_long)
+        # print(self.MA_long)
         # print(self.MA_long_data)
-        print("Short MA")
-        print(self.MA_short)
+        # print("Short MA")
+        # print(self.MA_short)
         # print(self.MA_short_data)
 
         # update trading state
@@ -455,7 +455,8 @@ class MovingAverage(object):
 
         # get current price
         price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], self.trading_vol)
-
+        print("Current Price is: ", price)
+        
         if new_state == 'BUY':
             # # get current price
             # price = BinanceRestLib.getCurrentPrice(self.symbol[:-3], self.symbol[-3:], self.trading_vol)
