@@ -126,8 +126,8 @@ class MovingAverage(object):
         self.MA_short_data = deque([0]*self.short_interval)
 
         # get exchange info for the trading limit
-        self.getExchangeInfo()
-        print("Min Price is: ", self.minPrice, " \nMin Quantity is: ", self.minQty)
+        # self.getExchangeInfo()
+        # print("Min Price is: ", self.minPrice, " \nMin Quantity is: ", self.minQty)
 
         # trading volumn is used to get the real buy/sell price
         self.trading_vol = {'buy':0,'sell':0}
@@ -379,7 +379,8 @@ class MovingAverage(object):
         # Checking Rule 1 with delta: 
         #   a. MA short through MA long from below; 
         #   b. MA long is moving up
-        # if self.MA_short[-1] - (self.MA_long[-1]+self.delta) > 1.0e-08 and \
+        # if self.MA_short[-1] - (self.MA_long[-1]+self.delta) > self.diff_factor*(self.MA_long[-1]+self.delta) and \
+        #     (self.MA_short[-2] - (self.MA_long[-2]+self.delta) < 0 or self.MA_short[-3] - (self.MA_long[-3]+self.delta) < 0)  and \
         #     gradientChcck(self.MA_long[-2], self.MA_long[-1], self.grad_MA_long_threadhold): 
         #     print(self.MA_short[-1] - self.MA_long[-1], end=" | ")
         #     print((self.MA_long[-1]-self.MA_long[-2])/self.MA_long[-2], end=" | ")
@@ -490,18 +491,18 @@ class MovingAverage(object):
             # file_out_info = file_out_info + "Current MA long value is: " + str(self.MA_long[-1]) + " | AM short value is: " + str(self.MA_short[-1]) + "\n"
             self.writeLog(time.time(), price, "Sell")
 
-        if new_state == 'HOLD':
-            # create a stop loss condition if it is needed
-            # if the current price is less than the last buy price
-            if float(price['asks_vol']) < self.buy_price*self.loss_factor:
-                print("Special cast: stop loss--------------------")
-                self.coin_vol = self.symbol_vol*float(price['bids_vol'])
-                self.symbol_vol = 0
-                new_state = 'SELL'
+        # if new_state == 'HOLD':
+        #     # create a stop loss condition if it is needed
+        #     # if the current price is less than the last buy price
+        #     if float(price['asks_vol']) < self.buy_price*self.loss_factor:
+        #         print("Special cast: stop loss--------------------")
+        #         self.coin_vol = self.symbol_vol*float(price['bids_vol'])
+        #         self.symbol_vol = 0
+        #         new_state = 'SELL'
 
-                print("Sell with price: ", price['bids_vol'], "@ ", datetime.now())
-                print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
-                self.writeLog(time.time(), price, "Sell")
+        #         print("Sell with price: ", price['bids_vol'], "@ ", datetime.now())
+        #         print("Calculate balance is %s: %f | %s: %f" %(self.symbol[:-3], self.symbol_vol, self.symbol[-3:], self.coin_vol))
+        #         self.writeLog(time.time(), price, "Sell")
 
         self.state = new_state
 
@@ -567,17 +568,17 @@ class MovingAverage(object):
             print(float(price['bids_vol'])-self.buy_price[-1])
             print()
 
-        if new_state == 'HOLD':
-            # create a stop loss condition if it is needed
-            # if the current price is less than the last buy price
-            if float(price['asks_vol']) < self.buy_price[-1]*self.loss_factor:
-                print("Special cast: stop loss")
-                self.coin_vol = self.symbol_vol*float(price['bids_vol'])
-                self.symbol_vol = 0
-                self.writeLog(int(current_test_data[0]/1000), price, "Sell")
-                self.sell_timestamp.append(int(current_test_data[0]/1000))
-                self.sell_price.append(float(price['bids_vol']))
-                new_state = 'SELL'
+        # if new_state == 'HOLD':
+        #     # create a stop loss condition if it is needed
+        #     # if the current price is less than the last buy price
+        #     if float(price['asks_vol']) < self.buy_price[-1]*self.loss_factor:
+        #         print("Special cast: stop loss")
+        #         self.coin_vol = self.symbol_vol*float(price['bids_vol'])
+        #         self.symbol_vol = 0
+        #         self.writeLog(int(current_test_data[0]/1000), price, "Sell")
+        #         self.sell_timestamp.append(int(current_test_data[0]/1000))
+        #         self.sell_price.append(float(price['bids_vol']))
+        #         new_state = 'SELL'
                 # set delta value
                 # self.delta = self.MA_short[-1] - self.MA_long[-1]
                 # print("Current delta: ", self.delta)
@@ -627,7 +628,7 @@ class MovingAverage(object):
 
 
 isTest = False
-test = MovingAverage('EOSETH',25,7,isTest)
+test = MovingAverage('EOSETH',54,15,isTest)
 
 while True:
     test.MATrading()
